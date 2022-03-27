@@ -7,6 +7,7 @@ import android.view.View;
 import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
+import androidx.recyclerview.widget.DividerItemDecoration;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.ArrayList;
@@ -17,9 +18,11 @@ import iut.android.tpfinal.objects.Defibrilator;
 public class CustomAdapter extends RecyclerView.Adapter<CustomViewHolder> {
 
     private ArrayList<Defibrilator> defibrilators;
+    private RecyclerViewOnClickListener listener;
 
-    public CustomAdapter(ArrayList<Defibrilator> defibrilators) {
+    public CustomAdapter(ArrayList<Defibrilator> defibrilators, RecyclerViewOnClickListener listener) {
         this.defibrilators = defibrilators;
+        this.listener = listener;
     }
 
     @NonNull
@@ -29,13 +32,12 @@ public class CustomAdapter extends RecyclerView.Adapter<CustomViewHolder> {
         LayoutInflater inflater = LayoutInflater.from(context);
         View view = inflater.inflate(R.layout.list_item, parent, false);
 
-        return new CustomViewHolder(view);
+        return new CustomViewHolder(view, listener);
     }
 
     @Override
     public void onBindViewHolder(@NonNull CustomViewHolder holder, int position) {
         Defibrilator defibrilator = defibrilators.get(position);
-
         holder.commune.setText(defibrilator.getCommune());
         holder.distance.setText(Double.toString(defibrilator.getDistance()).split("\\.")[0] + " meters");
         holder.indications.setText(defibrilator.getAcc() + ", " + defibrilator.getAcc_complt());
@@ -45,5 +47,9 @@ public class CustomAdapter extends RecyclerView.Adapter<CustomViewHolder> {
     @Override
     public int getItemCount() {
         return defibrilators.size();
+    }
+
+    public interface RecyclerViewOnClickListener{
+       void onClick(int position);
     }
 }

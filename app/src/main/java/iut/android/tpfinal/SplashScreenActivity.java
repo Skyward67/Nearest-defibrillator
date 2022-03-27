@@ -13,15 +13,14 @@ import android.content.pm.PackageManager;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.util.Log;
-import android.view.View;
 
-import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.location.LocationServices;
 import com.google.android.material.snackbar.Snackbar;
 
 import org.json.JSONArray;
@@ -38,9 +37,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 
+import iut.android.tpfinal.callbackmethods.AsyncCallback;
 import iut.android.tpfinal.objects.Defibrilator;
 
-public class SplashScreenActivity extends AppCompatActivity implements LocationListener {
+public class SplashScreenActivity extends AppCompatActivity implements LocationListener, AsyncCallback {
 
     private ArrayList<Defibrilator> defibrilators;
 
@@ -55,57 +55,63 @@ public class SplashScreenActivity extends AppCompatActivity implements LocationL
         if (checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_DENIED) {
             ActivityCompat.requestPermissions(SplashScreenActivity.this, new String[]{Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION}, 1);
         } else {
-            requestAndSwitchAtivity();
+            requestAndSwitchActivity();
         }
 
 
     }
 
-    private void requestAndSwitchAtivity() {
+
+    private void requestAndSwitchActivity() {
 
         LocationManager locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            // TODO: Consider calling
-            //    ActivityCompat#requestPermissions
-            // here to request the missing permissions, and then overriding
-            //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-            //                                          int[] grantResults)
-            // to handle the case where the user grants the permission. See the documentation
-            // for ActivityCompat#requestPermissions for more details.
-            return;
+            ActivityCompat.requestPermissions(SplashScreenActivity.this, new String[]{Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.ACCESS_FINE_LOCATION}, 1);
         }
-        locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, (LocationListener) this);
-        Location location = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
-
-        AsyncTaskRequest request = new AsyncTaskRequest();
-        request.execute(location, defibrilators);
-        try {
-            request.get();
-        } catch (ExecutionException e) {
-            e.printStackTrace();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_NETWORK_STATE) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(SplashScreenActivity.this, new String[]{Manifest.permission.ACCESS_NETWORK_STATE}, 2);
         }
-        for (Defibrilator def : defibrilators) {
-            Log.d("list :", def.toString());
+        if(!haveNetworkConnection()){
+            Log.d("test Connexion", String.valueOf(haveNetworkConnection()));
+            Snackbar.make(findViewById(R.id.progressBar), "Vous n'avez pas de réseaux", Snackbar.LENGTH_SHORT).show();
+            new Handler().postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    finish();
+                }
+            }, 1500);
+        } else {
+            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, (LocationListener) this);
+            Location location = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+
+            AsyncTaskRequest request = new AsyncTaskRequest();
+            request.execute(location, defibrilators, this);
+
         }
+    }
 
+    private boolean haveNetworkConnection() {
+        boolean haveConnectedWifi = false;
+        boolean haveConnectedMobile = false;
 
-        Intent intent = new Intent(SplashScreenActivity.this, MainActivity.class);
-        intent.putExtra("list", defibrilators);
-        startActivity(intent);
-        finish();
+        ConnectivityManager cm = (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        @SuppressLint("MissingPermission") NetworkInfo[] netInfo = cm.getAllNetworkInfo();
+        for (NetworkInfo ni : netInfo) {
+            if (ni.getTypeName().equalsIgnoreCase("WIFI"))
+                if (ni.isConnected())
+                    haveConnectedWifi = true;
+            if (ni.getTypeName().equalsIgnoreCase("MOBILE"))
+                if (ni.isConnected())
+                    haveConnectedMobile = true;
+        }
+        return haveConnectedWifi || haveConnectedMobile;
     }
 
     @SuppressLint("MissingPermission")
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         if (requestCode == 1 && grantResults[0] == PackageManager.PERMISSION_GRANTED && grantResults[1] == PackageManager.PERMISSION_GRANTED) {
-            //Log.d("permission1", Integer.toString(grantResults[1]));
-
-            //Get Location & Request
-            requestAndSwitchAtivity();
-
+            requestAndSwitchActivity();
         } else {
             Snackbar.make(findViewById(R.id.progressBar), "Vous devez autoriser la localisation", Snackbar.LENGTH_SHORT).show();
             new Handler().postDelayed(new Runnable() {
@@ -115,6 +121,7 @@ public class SplashScreenActivity extends AppCompatActivity implements LocationL
                 }
             }, 1500);
         }
+
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
     }
 
@@ -152,6 +159,14 @@ public class SplashScreenActivity extends AppCompatActivity implements LocationL
     public void onPointerCaptureChanged(boolean hasCapture) {
         super.onPointerCaptureChanged(hasCapture);
     }
+
+    @Override
+    public void endAsyncTask() {
+        Intent intent = new Intent(SplashScreenActivity.this, MainActivity.class);
+        intent.putExtra("list", defibrilators);
+        startActivity(intent);
+        finish();
+    }
 }
 
 //private class asynchStart
@@ -159,16 +174,18 @@ class AsyncTaskRequest extends AsyncTask<Object, Void, String> {
 
     private Location location;
     private ArrayList<Defibrilator> defibrilators;
+    private AsyncCallback callback;
 
     @RequiresApi(api = Build.VERSION_CODES.R)
     @Override
     protected String doInBackground(Object... objects) {
         this.location = (Location) objects[0];
         this.defibrilators = (ArrayList<Defibrilator>) objects[1];
+        this.callback = (AsyncCallback) objects[2];
 
 
-        double latitude = 48.88014609972204;//location.getLatitude();
-        double longitude = 2.356903;//location.getLongitude();
+        double latitude = location.getLatitude();//48.88014609972204;//location.getLatitude();
+        double longitude = location.getLongitude();//2.356903;//location.getLongitude();
         long distance = 10000;
 
         String toparse = "";
@@ -177,7 +194,7 @@ class AsyncTaskRequest extends AsyncTask<Object, Void, String> {
         //Request
         try {
             URL url = new URL("https://data.opendatasoft.com/api/records/1.0/search/?dataset=osm-aed-fr%40babel&q=&facet=etat_fonct&facet=departement&facet=commune&geofilter."
-                    +"distance="+latitude+"%2C+"+longitude+"%2C+" + 1000);
+                    +"distance="+latitude+"%2C+"+longitude+"%2C+" + distance);
             HttpURLConnection urlConnection = (HttpURLConnection) url.openConnection();
             if(urlConnection.getResponseCode() == HttpURLConnection.HTTP_OK){
                 BufferedReader input = new BufferedReader(new InputStreamReader(urlConnection.getInputStream()));
@@ -230,6 +247,7 @@ class AsyncTaskRequest extends AsyncTask<Object, Void, String> {
 
     @Override
     protected void onPostExecute(String s) {
+        callback.endAsyncTask();
         super.onPostExecute(s);
     }
 }
