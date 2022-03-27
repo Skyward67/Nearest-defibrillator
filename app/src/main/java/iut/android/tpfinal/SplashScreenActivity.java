@@ -167,9 +167,9 @@ class AsyncTaskRequest extends AsyncTask<Object, Void, String> {
         this.defibrilators = (ArrayList<Defibrilator>) objects[1];
 
 
-        double latitude = 46.205262;//location.getLatitude();
-        double longitude = 5.224705;//location.getLongitude();
-        long distance = 1000;
+        double latitude = 48.88014609972204;//location.getLatitude();
+        double longitude = 2.356903;//location.getLongitude();
+        long distance = 10000;
 
         String toparse = "";
         JSONArray data = null;
@@ -196,10 +196,30 @@ class AsyncTaskRequest extends AsyncTask<Object, Void, String> {
             data = answer.getJSONArray("records");
             for(int i = 0; i < data.length(); i++){
                 JSONObject obj = data.getJSONObject(i).getJSONObject("fields");
-                defibrilators.add(new Defibrilator(obj.getString("com_nom"),
-                                                    obj.getString("departement"),
-                                                    Double.parseDouble(obj.getString("lat_coor1")),
-                                                    Double.parseDouble(obj.getString("long_coor1"))));
+                if(obj.has("acc")){
+                    if(obj.has("acc_complt")){
+                        defibrilators.add(new Defibrilator(obj.getString("com_nom"),
+                                obj.getString("departement"),
+                                Double.parseDouble(obj.getString("lat_coor1")),
+                                Double.parseDouble(obj.getString("long_coor1")),
+                                Double.parseDouble(obj.getString("dist")),
+                                obj.getString("acc"),
+                                obj.getString("acc_complt")));
+                    } else {
+                        defibrilators.add(new Defibrilator(obj.getString("com_nom"),
+                                obj.getString("departement"),
+                                Double.parseDouble(obj.getString("lat_coor1")),
+                                Double.parseDouble(obj.getString("long_coor1")),
+                                Double.parseDouble(obj.getString("dist")),
+                                obj.getString("acc")));
+                    }
+                } else {
+                    defibrilators.add(new Defibrilator(obj.getString("com_nom"),
+                            obj.getString("departement"),
+                            Double.parseDouble(obj.getString("lat_coor1")),
+                            Double.parseDouble(obj.getString("long_coor1")),
+                            Double.parseDouble(obj.getString("dist"))));
+                }
             }
         } catch (JSONException e) {
             e.printStackTrace();
