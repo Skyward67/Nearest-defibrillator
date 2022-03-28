@@ -62,6 +62,7 @@ public class SplashScreenActivity extends AppCompatActivity implements LocationL
     }
 
 
+    @SuppressLint("MissingPermission")
     private void requestAndSwitchActivity() {
 
         LocationManager locationManager = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
